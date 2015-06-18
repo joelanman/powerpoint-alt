@@ -42,4 +42,22 @@ files.forEach(function(filename){
 
 });
 
+// json
+
 console.log(JSON.stringify(slidesData, null, "  "));
+
+console.log();
+
+// csv
+
+console.log("slide,id,name,description");
+
+slidesData.forEach(function(slide){
+
+	slide.pics.forEach(function(pic){
+
+		console.log(slide.slide + "," + pic.id + "," + pic.name + "," +pic.description);
+
+	});
+
+});
