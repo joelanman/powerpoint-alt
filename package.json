@@ -13,5 +13,8 @@
     "accessibility"
   ],
   "author": "Joe Lanman",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^0.19.0"
+  }
 }
