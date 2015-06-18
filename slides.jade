@@ -1,0 +1,55 @@
+
+html
+
+	head
+
+		link(rel="stylesheet",type="text/css",href="style.css")
+
+	body
+
+		main
+
+			each slide in slides
+
+				.slide
+
+					h2 Slide #{slide.slide}
+
+					h3 Text
+
+					p= slide.text
+
+					h3 Images
+
+					.group
+
+						each el in slide.pics
+
+							.group
+
+								.row
+									span.name Id
+									span.value= el.id
+								.row
+									span.name Name
+									span.value= el.name
+								.row
+									span.name Description
+									span.value= el.description
+
+					h3 Groups
+
+					.group
+						each el in slide.groups
+
+							.group
+
+								.row
+									span.name Id
+									span.value= el.id
+								.row
+									span.name Name
+									span.value= el.name
+								.row
+									span.name Description
+									span.value= el.description

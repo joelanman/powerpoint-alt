@@ -1,10 +1,12 @@
 var fs = require('fs');
 var cheerio = require('cheerio');
+var jade = require('jade');
+
 
 var filePath = "resources/powerpoint/unzipped/ppt/slides";
 var files = fs.readdirSync(filePath);
 
-var slidesData = [];
+var slides = [];
 
 files.forEach(function(filename){
 
@@ -18,12 +20,20 @@ files.forEach(function(filename){
 
 	var $ = cheerio.load(powerpointFile);
 
-	var slideData = {
-		"slide": filename.replace("slide", "").replace(".xml", ""),
+	var text = "";
+
+	$("p\\:txBody a\\:p a\\:r a\\:t").each(function(){
+
+		text += $(this).text() + " ";
+
+	});
+
+	var slide = {
+		"slide": Number(filename.replace("slide", "").replace(".xml", "")),
+		"text": text,
 		"pics": [],
 		"groups": []
 	};
-
 
 	// pics
 
@@ -31,7 +41,7 @@ files.forEach(function(filename){
 
 		var $this = $(this);
 
-		slideData.pics.push({
+		slide.pics.push({
 			"id": $this.attr('id'),
 			"name": $this.attr('name'),
 			"description": $this.attr('descr') || ""
@@ -47,7 +57,7 @@ files.forEach(function(filename){
 
 		var $this = $(this);
 
-		slideData.groups.push({
+		slide.groups.push({
 			"id": $this.attr('id'),
 			"name": $this.attr('name'),
 			"description": $this.attr('descr') || ""
@@ -55,38 +65,59 @@ files.forEach(function(filename){
 
 	});
 
-	slidesData.push(slideData);
+	slides.push(slide);
 
 });
 
-slidesData.sort(function(a,b){
-	if (Number(a.slide) < Number(b.slide)) return -1;
-	if (Number(a.slide) > Number(b.slide)) return 1;
-	if (Number(a.slide) == Number(b.slide)) return 0;
+slides.sort(function(a,b){
+
+	if (a.slide < b.slide) return -1;
+	if (a.slide > b.slide) return 1;
+	if (a.slide == b.slide) return 0;
+
 });
 
 // json
 
-console.log(JSON.stringify(slidesData, null, "  "));
+// console.log(JSON.stringify(slides, null, "  "));
 
-console.log();
+// console.log();
+
+var options = {
+	pretty: true
+}
+
+var locals = {
+	slides: slides
+}
+
+var template = fs.readFileSync('slides.jade');
+
+var fn = jade.compile(template, options);
+var html = fn(locals);
+
+fs.writeFileSync("slides.html",html);
 
 // csv
 
-console.log("slide,id,name,description");
+// console.log("slide,id,name,description");
 
-slidesData.forEach(function(slide){
+// slides.forEach(function(slide){
 
-	slide.pics.forEach(function(pic){
+// 	slide.pics.forEach(function(pic){
 
-		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' +pic.description.replace(/"/g,'""') + '"');
+// 		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' + pic.description.replace(/"/g,'""') + '"');
 
-	});
+// 	});
 
-	slide.groups.forEach(function(group){
+// 	slide.groups.forEach(function(group){
 
-		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
+// 		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
 
-	});
+// 	});
 
-});
+// });
+
+// //yaml
+
+// console.log(yaml.stringify(slides, 4));
