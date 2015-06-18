@@ -1,0 +1,17 @@
+{
+  "name": "powerpoint-alt",
+  "version": "1.0.0",
+  "description": "find empty alt tags in pptx files",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "alt",
+    "pptx",
+    "powerpoint",
+    "accessibility"
+  ],
+  "author": "Joe Lanman",
+  "license": "ISC"
+}

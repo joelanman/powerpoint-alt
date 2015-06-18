@@ -1,0 +1,132 @@
+#! /bin/bash
+
+# Audit Trail
+# Version 3 16 Jan 2015 mrj Added logging function 
+# Version 2 3 Nov 2014 mrj Added revised main loop with updates from Peter Flynn
+# Version 1 31 Oct 2014 mrj Original. This is a bash shell wrapper around some code created by Peter Flynn
+
+WORK_DIR="/home/malcolm/samba" #samba will export this directory
+INPUT_DIR="input_folder"	#user will put files in this folder	
+OUTPUT_DIR="output_folder"	#results will apper here
+ERROR_DIR="error_folder"
+DONE_DIR="done_folder"		#files will be put here once processed
+LOG_DIR="log_folder"
+CONFIG_DIR="/home/malcolm/config"
+TEST_FILE="Forms-cjforms-WWC-2014.pptx"
+#Files will be dropped in via Samba so we need to ensure that they have arrived in full before mangling them
+function is_file_stable
+	{
+	let LOOPCOUNT=0 #don't wait indefinitely
+	let SIZE=0 
+	let OLDSIZE=-1	# set up two measures  of file size, initially different
+	#echo $SIZE ; echo $OLDSIZE
+	while [ $OLDSIZE -ne $SIZE ] # until the file is stable we loop around
+		do
+		{
+		OLDSIZE=$(ls -al $1  | awk '{ print $5 }' )	#how big is the file
+		sleep 1									#let's wait awhile
+		SIZE=$(ls -al $1  | awk '{ print $5 }' )	#how big is the file
+		(( LOOPCOUNT++ ))
+		if [ $LOOPCOUNT -gt 60 ] 
+			then
+			{
+			echo "Timed out waiting for file $1 to become stable" >> $LOGFILE
+			break
+			}
+		fi
+		}
+		done
+	}
+
+
+function is_file_power_pig
+        {
+                echo "$1 being processed by is_file_power_pig" >> $LOGFILE
+		let BADFILE=1					#assume dodgy
+                case $1 in
+                        *' '*) echo "Spaces not allowed in filename"  >> $LOGFILE
+				mv $WORK_DIR/$INPUT_DIR/"$1" $WORK_DIR/$ERROR_DIR ;;
+                        *.pptx) echo "File is PPTX file, OK to process" >> $LOGFILE 
+				let BADFILE=0 ;;		#happy
+                        *.ppt) echo "File is PPT file can only process PPTX files"  >> $LOGFILE
+				let BADFILE=0          ;;
+                        *) echo "Unknown file type, cannot process" >> $LOGFILE
+				mv $WORK_DIR/$INPUT_DIR/$1 $WORK_DIR/$ERROR_DIR ;;
+                esac
+        }
+
+
+
+function is_directory_empty
+	{
+	let EMPTY_DIR=0		#set flafg to show directory empty
+	#echo "Checking directory $WORK_DIR/$INPUT_DIR"
+	EMPTY_DIR=`ls -A $WORK_DIR/$INPUT_DIR  | wc -l`
+	}
+
+# This is the really serious bit written by Peter Flynn. Peter's original is hashed out, my modified version follows
+# This is the scond loop written by Peter Flynn. I have just lifted it with a view to writing a daemon at some stage
+
+function run_process_loop		#Peter Flynn's work wrapped into a function
+	{
+	FILE=`basename $FIRST_FILE .pptx`	#lop off the file extension
+	#LOGFILE=$WORK_DIR/$LOG_DIR/$FILE.log	#create a log file
+	#touch $LOGFILE				#create a log file
+        cat <<EOF >$WORK_DIR/$OUTPUT_DIR/$FILE.csv		#create a new CSV file with a header line in place
+	DOCUMENT,SLIDE,OBJECT,ID,NAME,DESCRIPTION,TEXT,GROUPID,GROUPNAME,GROUPDESCRIPTION
+EOF
+	echo "run_process_loop with file $FIRST_FILE" >> $LOGFILE
+        /bin/rm -rf ppt			#remove detritus from previous pass
+        #unzip -o $WORK_DIR/$INPUT_DIR/$FIRST_FILE > $WORK_DIR/$INPUT_DIR/$FIRST_FILE.lis #PPTX files are zipped
+        unzip -o $WORK_DIR/$INPUT_DIR/$FIRST_FILE > /dev/null #PPTX files are zipped
+	for f in ppt/slides/slide*.xml; do 						#trawl through each slide
+       	 SLIDE=`basename $f .xml`
+		echo "Processing $SLIDE" >> $LOGFILE
+		java -Djdk.xml.entityExpansionLimit=0 \
+			-jar /usr/local/share/saxon/saxon9he.jar \
+			-o:alt-text.tmp $f getalt.xsl slidefile=$f pptfile=$FILE
+		cat alt-text.tmp >>$WORK_DIR/$OUTPUT_DIR/$FILE.csv	#output file related to input file
+    	done
+	mv $WORK_DIR/$INPUT_DIR/$1 $WORK_DIR/$DONE_DIR	#put file i done folder. This tells the user we are done and stops us looping
+	#/bin/rm -f alt-text.csv	#tidy up all the debris
+    	/bin/rm -rf ppt
+	}
+
+#here is the main indefinite loop for the daemon process
+
+while true		#always true, always loop
+do
+	{
+	is_directory_empty	#have we anything to do?
+	if [ $EMPTY_DIR -eq 0 ]	#0 means no we can idle
+		then
+		{
+		#echo "Sleeping, directory empty"
+		sleep 10		#go to sleep for a while
+		}
+		else
+		{
+		FIRST_FILE=`ls $WORK_DIR/$INPUT_DIR | head -1`
+		LOGFILE=$WORK_DIR/$LOG_DIR/$FIRST_FILE.log	#create a log file
+		touch $LOGFILE				#create a log file
+		echo "File $FIRST_FILE is at head of process queue" > $LOGFILE
+		is_file_power_pig "$FIRST_FILE"	#if it's not right chuck it in the error queue		i
+		echo "BADFILE=$BADFILE, 0 is OK, anything else dodgy" >> $LOGFILE
+		if [ $BADFILE -ne 0 ]
+			then
+				{
+				echo "We detected $FIRST_FILE was dodgy" >> $LOGFILE
+				sleep 1			#do nothing much
+				}
+				else
+				{
+				echo "Let's process $FIRST_FILE" >> $LOGFILE
+				is_file_stable $FIRST_FILE		#just check it's nort still being written
+				run_process_loop $FIRST_FILE #this is where the real work is done!
+				}	
+		fi	
+		}
+	fi
+	}
+done
+
