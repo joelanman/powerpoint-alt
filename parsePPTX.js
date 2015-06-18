@@ -19,8 +19,9 @@ files.forEach(function(filename){
 	var $ = cheerio.load(powerpointFile);
 
 	var slideData = {
-		"slide": filename.replace("slide","").replace(".xml",""),
-		"pics": []
+		"slide": filename.replace("slide", "").replace(".xml", ""),
+		"pics": [],
+		"groups": []
 	};
 
 
@@ -33,13 +34,35 @@ files.forEach(function(filename){
 		slideData.pics.push({
 			"id": $this.attr('id'),
 			"name": $this.attr('name'),
-			"description": $this.attr('descr')
+			"description": $this.attr('descr') || ""
+		});
+
+	});
+
+	// groups
+
+	//p:grpSp/p:nvGrpSpPr/p:cNvPr
+
+	$('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
+
+		var $this = $(this);
+
+		slideData.groups.push({
+			"id": $this.attr('id'),
+			"name": $this.attr('name'),
+			"description": $this.attr('descr') || ""
 		});
 
 	});
 
 	slidesData.push(slideData);
 
+});
+
+slidesData.sort(function(a,b){
+	if (Number(a.slide) < Number(b.slide)) return -1;
+	if (Number(a.slide) > Number(b.slide)) return 1;
+	if (Number(a.slide) == Number(b.slide)) return 0;
 });
 
 // json
@@ -56,7 +79,13 @@ slidesData.forEach(function(slide){
 
 	slide.pics.forEach(function(pic){
 
-		console.log(slide.slide + "," + pic.id + "," + pic.name + "," +pic.description);
+		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' +pic.description.replace(/"/g,'""') + '"');
+
+	});
+
+	slide.groups.forEach(function(group){
+
+		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
 
 	});
 
