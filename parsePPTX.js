@@ -16,9 +16,23 @@ files.forEach(function(filename){
 
 	// console.log(filename);
 
-	var powerpointFile = fs.readFileSync(filePath +"/" + filename);
+	var relsFile = fs.readFileSync(filePath +"/_rels/" + filename + ".rels");
 
-	var $ = cheerio.load(powerpointFile);
+	var $ = cheerio.load(relsFile);
+
+	var rels = {};
+
+	$("Relationship").each(function(){
+
+		var $this = $(this);
+
+		rels[$this.attr("id")] = $this.attr("target").replace("../media/","");
+
+	});
+
+	var slideFile = fs.readFileSync(filePath +"/" + filename);
+
+	var $ = cheerio.load(slideFile);
 
 	var text = "";
 
@@ -41,10 +55,13 @@ files.forEach(function(filename){
 
 		var $this = $(this);
 
+		var relId = $this.closest("p\\:pic").find("a\\:blip").attr("r:embed");
+
 		slide.pics.push({
 			"id": $this.attr('id'),
 			"name": $this.attr('name'),
-			"description": $this.attr('descr') || ""
+			"description": $this.attr('descr') || "",
+			"file": rels[relId]
 		});
 
 	});
