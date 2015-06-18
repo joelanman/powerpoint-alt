@@ -4,28 +4,42 @@ var cheerio = require('cheerio');
 var filePath = "resources/powerpoint/unzipped/ppt/slides";
 var files = fs.readdirSync(filePath);
 
+var slidesData = [];
+
 files.forEach(function(filename){
 
 	if (filename.indexOf(".xml") == -1){
 		return;
 	}
 
-	console.log(filename);
+	// console.log(filename);
 
 	var powerpointFile = fs.readFileSync(filePath +"/" + filename);
 
-	// parseString(powerpointFile, function (err, result) {
-	//     console.log(JSON.stringify(result, null, "  "));
-	// });
-
 	var $ = cheerio.load(powerpointFile);
+
+	var slideData = {
+		"slide": filename.replace("slide","").replace(".xml",""),
+		"pics": []
+	};
+
+
+	// pics
 
 	$('p\\:pic p\\:cnvpr').each(function(){
 
-		console.log($(this).attr('descr'));
+		var $this = $(this);
+
+		slideData.pics.push({
+			"id": $this.attr('id'),
+			"name": $this.attr('name'),
+			"description": $this.attr('descr')
+		});
 
 	});
 
+	slidesData.push(slideData);
+
 });
 
-
+console.log(JSON.stringify(slidesData, null, "  "));
