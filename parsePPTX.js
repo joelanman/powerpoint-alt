@@ -121,7 +121,6 @@ function processUnzipped(){
 
 	});
 
-
 	// html
 
 	var options = {
@@ -138,7 +137,7 @@ function processUnzipped(){
 	var fn = jade.compile(template, options);
 	var html = fn(locals);
 
-	fs.writeFileSync(presentationName + ".html",html);
+	fs.writeFileSync("html/" + presentationName + ".html", html);
 
 }
 
