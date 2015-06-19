@@ -3,7 +3,7 @@ var cheerio = require('cheerio');
 var jade = require('jade');
 
 
-var filePath = "resources/powerpoint/unzipped/ppt/slides";
+var filePath = "resources/powerpoint/sdig/ppt/slides";
 var files = fs.readdirSync(filePath);
 
 var slides = [];
@@ -68,8 +68,6 @@ files.forEach(function(filename){
 
 	// groups
 
-	//p:grpSp/p:nvGrpSpPr/p:cNvPr
-
 	$('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
 
 		var $this = $(this);
@@ -94,11 +92,8 @@ slides.sort(function(a,b){
 
 });
 
-// json
 
-// console.log(JSON.stringify(slides, null, "  "));
-
-// console.log();
+// html
 
 var options = {
 	pretty: true
@@ -113,7 +108,13 @@ var template = fs.readFileSync('slides.jade');
 var fn = jade.compile(template, options);
 var html = fn(locals);
 
-fs.writeFileSync("slides.html",html);
+fs.writeFileSync("sdig.html",html);
+
+// json
+
+// console.log(JSON.stringify(slides, null, "  "));
+
+// console.log();
 
 // csv
 

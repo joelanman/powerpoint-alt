@@ -1,0 +1,1 @@
+Helps improve Powerpoint accessibility by checking slides for missing alt tags.

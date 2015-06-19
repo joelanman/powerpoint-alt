@@ -1,6 +1,7 @@
 {
   "name": "powerpoint-alt",
   "version": "1.0.0",
+  "repository": "https://github.com/joelanman/powerpoint-alt",
   "description": "find empty alt tags in pptx files",
   "main": "index.js",
   "scripts": {
@@ -16,6 +17,7 @@
   "license": "ISC",
   "dependencies": {
     "cheerio": "^0.19.0",
-    "jade": "^1.11.0"
+    "jade": "^1.11.0",
+    "unzip": "^0.1.11"
   }
 }

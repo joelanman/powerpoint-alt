@@ -15,44 +15,52 @@ html
 
 					h2 Slide #{slide.slide}
 
-					h3 Text
+					if slide.text
 
-					p= slide.text
+						h3 Text
 
-					h3 Images
+						p= slide.text
 
-					.group
+					if slide.pics.length
 
-						each el in slide.pics
+						h3 Images
 
-							.group
+						.group
 
-								.row
-									span.name Id
-									span.value= el.id
-								.row
-									span.name Name
-									span.value= el.name
-								.row
-									span.name File
-									span.value= el.file
-								.row
-									span.name Description
-									span.value= el.description
+							each el in slide.pics
 
-					h3 Groups
+								.group
 
-					.group
-						each el in slide.groups
+									.row
+										span.name Id
+										span.value= el.id
+									.row
+										span.name Name
+										span.value= el.name
+									.row
+										span.name File
+										span.value
+											a(target="_blank", href="resources/powerpoint/unzipped/ppt/media/#{el.file}")= el.file
+									.row
+										span.name Description
+										span.value= el.description
 
-							.group
 
-								.row
-									span.name Id
-									span.value= el.id
-								.row
-									span.name Name
-									span.value= el.name
-								.row
-									span.name Description
-									span.value= el.description
+					if slide.groups.length
+
+						h3 Groups
+
+						.group
+							each el in slide.groups
+
+								.group
+
+									.row
+										span.name Id
+										span.value= el.id
+									.row
+										span.name Name
+										span.value= el.name
+									.row
+										span.name Description
+										span.value= el.description

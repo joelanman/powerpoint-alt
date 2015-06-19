@@ -11,8 +11,11 @@ main{
 }
 
 .group{
-	margin: 1em 0;
-	padding-bottom: 1em;
+	margin: 1.25em 0;
+}
+
+.row{
+	margin: 0.25em 0;
 }
 
 .name,
