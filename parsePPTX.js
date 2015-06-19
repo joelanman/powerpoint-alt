@@ -1,141 +1,173 @@
 var fs = require('fs');
+var unzip = require('unzip');
 var cheerio = require('cheerio');
+var minimist = require('minimist');
 var jade = require('jade');
 
+var argv = minimist(process.argv.slice(2));
 
-var filePath = "resources/powerpoint/sdig/ppt/slides";
-var files = fs.readdirSync(filePath);
+var presentationName = argv._[0];
 
-var slides = [];
+if (!presentationName){
+	console.error("Error - No presentation selected.");
+    process.exit(1);
+}
 
-files.forEach(function(filename){
+console.log('unzipping "resources/powerpoint/' + presentationName + '.pptx"');
 
-	if (filename.indexOf(".xml") == -1){
-		return;
+var unzipStream = unzip.Extract({ path: "resources/powerpoint/" + presentationName});
+    unzipStream.on('error', function () {
+    	console.log('Error')
+    });
+    unzipStream.on('close', function () {
+    	console.log('done unzipping');
+    	processUnzipped();
+    });
+    unzipStream.on('end', function () {
+    	console.log('End')
+    });
+
+var readStream = fs.createReadStream("resources/powerpoint/" + presentationName + ".pptx")
+    readStream.pipe(unzipStream);
+
+function processUnzipped(){
+
+	var filePath = "resources/powerpoint/" + presentationName + "/ppt/slides";
+	var files = fs.readdirSync(filePath);
+
+	var slides = [];
+
+	files.forEach(function(filename){
+
+		if (filename.indexOf(".xml") == -1){
+			return;
+		}
+
+		console.log(filename);
+
+		var relsFile = fs.readFileSync(filePath +"/_rels/" + filename + ".rels");
+
+		var $ = cheerio.load(relsFile);
+
+		var rels = {};
+
+		$("Relationship").each(function(){
+
+			var $this = $(this);
+
+			rels[$this.attr("id")] = $this.attr("target").replace("../media/","");
+
+		});
+
+		var slideFile = fs.readFileSync(filePath +"/" + filename);
+
+		var $ = cheerio.load(slideFile);
+
+		var text = "";
+
+		$("p\\:txBody a\\:p a\\:r a\\:t").each(function(){
+
+			text += $(this).text() + " ";
+
+		});
+
+		var slide = {
+			"slide": Number(filename.replace("slide", "").replace(".xml", "")),
+			"text": text,
+			"pics": [],
+			"groups": []
+		};
+
+		// pics
+
+		$('p\\:pic p\\:cnvpr').each(function(){
+
+			var $this = $(this);
+
+			var relId = $this.closest("p\\:pic").find("a\\:blip").attr("r:embed");
+
+			slide.pics.push({
+				"id": $this.attr('id'),
+				"name": $this.attr('name'),
+				"description": $this.attr('descr') || "",
+				"file": rels[relId]
+			});
+
+		});
+
+		// groups
+
+		$('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
+
+			var $this = $(this);
+
+			slide.groups.push({
+				"id": $this.attr('id'),
+				"name": $this.attr('name'),
+				"description": $this.attr('descr') || ""
+			});
+
+		});
+
+		slides.push(slide);
+
+	});
+
+	slides.sort(function(a,b){
+
+		if (a.slide < b.slide) return -1;
+		if (a.slide > b.slide) return 1;
+		if (a.slide == b.slide) return 0;
+
+	});
+
+
+	// html
+
+	var options = {
+		pretty: true
 	}
 
-	// console.log(filename);
+	var locals = {
+		slides: slides,
+		presentationName: presentationName
+	}
 
-	var relsFile = fs.readFileSync(filePath +"/_rels/" + filename + ".rels");
+	var template = fs.readFileSync('slides.jade');
 
-	var $ = cheerio.load(relsFile);
+	var fn = jade.compile(template, options);
+	var html = fn(locals);
 
-	var rels = {};
+	fs.writeFileSync(presentationName + ".html",html);
 
-	$("Relationship").each(function(){
-
-		var $this = $(this);
-
-		rels[$this.attr("id")] = $this.attr("target").replace("../media/","");
-
-	});
-
-	var slideFile = fs.readFileSync(filePath +"/" + filename);
-
-	var $ = cheerio.load(slideFile);
-
-	var text = "";
-
-	$("p\\:txBody a\\:p a\\:r a\\:t").each(function(){
-
-		text += $(this).text() + " ";
-
-	});
-
-	var slide = {
-		"slide": Number(filename.replace("slide", "").replace(".xml", "")),
-		"text": text,
-		"pics": [],
-		"groups": []
-	};
-
-	// pics
-
-	$('p\\:pic p\\:cnvpr').each(function(){
-
-		var $this = $(this);
-
-		var relId = $this.closest("p\\:pic").find("a\\:blip").attr("r:embed");
-
-		slide.pics.push({
-			"id": $this.attr('id'),
-			"name": $this.attr('name'),
-			"description": $this.attr('descr') || "",
-			"file": rels[relId]
-		});
-
-	});
-
-	// groups
-
-	$('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
-
-		var $this = $(this);
-
-		slide.groups.push({
-			"id": $this.attr('id'),
-			"name": $this.attr('name'),
-			"description": $this.attr('descr') || ""
-		});
-
-	});
-
-	slides.push(slide);
-
-});
-
-slides.sort(function(a,b){
-
-	if (a.slide < b.slide) return -1;
-	if (a.slide > b.slide) return 1;
-	if (a.slide == b.slide) return 0;
-
-});
-
-
-// html
-
-var options = {
-	pretty: true
 }
 
-var locals = {
-	slides: slides
-}
+	// json
 
-var template = fs.readFileSync('slides.jade');
+	// console.log(JSON.stringify(slides, null, "  "));
 
-var fn = jade.compile(template, options);
-var html = fn(locals);
+	// console.log();
 
-fs.writeFileSync("sdig.html",html);
+	// csv
 
-// json
+	// console.log("slide,id,name,description");
 
-// console.log(JSON.stringify(slides, null, "  "));
+	// slides.forEach(function(slide){
 
-// console.log();
+	// 	slide.pics.forEach(function(pic){
 
-// csv
+	// 		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' + pic.description.replace(/"/g,'""') + '"');
 
-// console.log("slide,id,name,description");
+	// 	});
 
-// slides.forEach(function(slide){
+	// 	slide.groups.forEach(function(group){
 
-// 	slide.pics.forEach(function(pic){
+	// 		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
 
-// 		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' + pic.description.replace(/"/g,'""') + '"');
+	// 	});
 
-// 	});
+	// });
 
-// 	slide.groups.forEach(function(group){
+	// //yaml
 
-// 		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
-
-// 	});
-
-// });
-
-// //yaml
-
-// console.log(yaml.stringify(slides, 4));
+	// console.log(yaml.stringify(slides, 4));
