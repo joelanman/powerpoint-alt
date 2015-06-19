@@ -1,4 +1,6 @@
 var fs = require('fs');
+var path = require('path');
+
 var unzip = require('unzip');
 var cheerio = require('cheerio');
 var minimist = require('minimist');
@@ -15,7 +17,7 @@ if (!presentationName){
 
 console.log('unzipping "resources/powerpoint/' + presentationName + '.pptx"');
 
-var unzipStream = unzip.Extract({ path: "resources/powerpoint/" + presentationName});
+var unzipStream = unzip.Extract({ path: path.join("input", presentationName)});
     unzipStream.on('error', function () {
     	console.log('Error')
     });
@@ -27,12 +29,12 @@ var unzipStream = unzip.Extract({ path: "resources/powerpoint/" + presentationNa
     	console.log('End')
     });
 
-var readStream = fs.createReadStream("resources/powerpoint/" + presentationName + ".pptx")
+var readStream = fs.createReadStream(path.join("input", presentationName + ".pptx"));
     readStream.pipe(unzipStream);
 
 function processUnzipped(){
 
-	var filePath = "resources/powerpoint/" + presentationName + "/ppt/slides";
+	var filePath = path.join("input", presentationName, "ppt", "slides");
 	var files = fs.readdirSync(filePath);
 
 	var slides = [];
@@ -45,7 +47,7 @@ function processUnzipped(){
 
 		console.log(filename);
 
-		var relsFile = fs.readFileSync(filePath +"/_rels/" + filename + ".rels");
+		var relsFile = fs.readFileSync(path.join(filePath, "/_rels/", filename + ".rels"));
 
 		var $ = cheerio.load(relsFile);
 
@@ -59,7 +61,7 @@ function processUnzipped(){
 
 		});
 
-		var slideFile = fs.readFileSync(filePath +"/" + filename);
+		var slideFile = fs.readFileSync(path.join(filePath, filename));
 
 		var $ = cheerio.load(slideFile);
 
@@ -132,12 +134,14 @@ function processUnzipped(){
 		presentationName: presentationName
 	}
 
-	var template = fs.readFileSync('slides.jade');
+	var template = fs.readFileSync(path.join("lib", "slides.jade"));
 
 	var fn = jade.compile(template, options);
 	var html = fn(locals);
 
-	fs.writeFileSync("html/" + presentationName + ".html", html);
+	fs.writeFileSync(path.join("output", presentationName + ".html"), html);
+
+	console.log("done");
 
 }
 
