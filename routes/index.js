@@ -4,7 +4,7 @@ var aws = require('aws-sdk');
 
 var AWS_ACCESS_KEY = process.env.AWS_ACCESS_KEY;
 var AWS_SECRET_KEY = process.env.AWS_SECRET_KEY;
-var S3_BUCKET = process.env.S3_BUCKET
+var S3_BUCKET = process.env.S3_BUCKET;
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
@@ -36,7 +36,7 @@ router.get('/sign_s3', function(req, res){
             res.end();
         }
     });
-    
+
 });
 
 module.exports = router;

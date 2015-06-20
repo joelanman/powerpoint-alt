@@ -6,6 +6,15 @@ var cheerio = require('cheerio');
 var minimist = require('minimist');
 var jade = require('jade');
 
+var aws = require('aws-sdk');
+var s3Stream = require('s3-upload-stream')(new aws.S3());
+
+var AWS_ACCESS_KEY = process.env.AWS_ACCESS_KEY;
+var AWS_SECRET_KEY = process.env.AWS_SECRET_KEY;
+var S3_BUCKET = "joelanman-powerpoint";
+
+aws.config.update({accessKeyId: AWS_ACCESS_KEY, secretAccessKey: AWS_SECRET_KEY});
+
 var argv = minimist(process.argv.slice(2));
 
 var presentationName = argv._[0];
@@ -17,20 +26,69 @@ if (!presentationName){
 
 console.log('unzipping "resources/powerpoint/' + presentationName + '.pptx"');
 
-var unzipStream = unzip.Extract({ path: path.join("input", presentationName)});
-    unzipStream.on('error', function () {
-    	console.log('Error')
-    });
-    unzipStream.on('close', function () {
-    	console.log('done unzipping');
-    	processUnzipped();
-    });
-    unzipStream.on('end', function () {
-    	console.log('End')
-    });
+var uploads = 0;
 
-var readStream = fs.createReadStream(path.join("input", presentationName + ".pptx"));
-    readStream.pipe(unzipStream);
+var slideRegex = /^ppt\/slides\/[^\/]*\.xml$/;
+var relsRegex  = /^ppt\/slides\/_rels\/[^\/]*\.rels$/;
+var mediaRegex = /^ppt\/media\/[^\/]*$/;
+
+var paths = {
+	'slides': {},
+	'rels': {},
+	'media': {}
+};
+
+fs.createReadStream(path.join("input", presentationName + ".pptx"))
+    .pipe(unzip.Parse())
+	.on('entry', function (file) {
+
+		var keep = false;
+
+		if (slideRegex.test(file.path)){
+
+			paths.slides[file.path] = true;
+			keep = true;
+
+		} else if (relsRegex.test(file.path)){
+
+			paths.rels[file.path] = true;
+			keep = true;
+
+		} else if (mediaRegex.test(file.path)){
+
+			paths.media[file.path] = true;
+			keep = true;
+
+		}
+
+		if (keep){
+
+			uploads++;
+
+	    	file.pipe(s3Stream.upload({
+			  "Bucket": S3_BUCKET,
+			  "Key": file.path
+			}).on('uploaded', function (details) {
+				uploads--;
+				// console.log(details);
+				if (uploads == 0){
+					console.log("all done");
+					console.dir(paths);
+					//processUnzipped();
+				}
+			}));
+
+	    } else {
+
+	    	file.autodrain();
+
+	    }
+    })
+    .on('close', function(){
+
+    	console.log("done unzipping");
+
+    });
 
 function processUnzipped(){
 
