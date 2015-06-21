@@ -15,7 +15,7 @@ aws.config.update({accessKeyId: AWS_ACCESS_KEY, secretAccessKey: AWS_SECRET_KEY}
 var s3Stream = require('s3-upload-stream')(new aws.S3());
 var s3 = new aws.S3();
 
-/* GET home page. */
+
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
@@ -26,7 +26,7 @@ router.get('/sign_s3', function(req, res){
     var s3 = new aws.S3();
     var s3_params = {
         Bucket: S3_BUCKET,
-        Key: req.query.file_name,
+        Key: req.query.file_name.toLowerCase(),
         Expires: 60,
         ContentType: req.query.file_type,
         ACL: 'public-read'
@@ -53,8 +53,7 @@ router.get('/report/:presentationName', function (req, res){
 	var presentationName = req.params.presentationName;
 
 	if (!presentationName){
-	    console.error("Error - No presentation selected.");
-	    process.exit(1);
+	    res.status(404).send("no presentation selected");
 	}
 
 	var uploads = 0;
@@ -67,7 +66,7 @@ router.get('/report/:presentationName', function (req, res){
 
 	// read pptx and unzip to s3
 
-	var params = {Bucket: S3_BUCKET, Key: presentationName};
+	var params = {Bucket: S3_BUCKET, Key: presentationName + ".pptx"};
 
 	var readStream = s3.getObject(params).createReadStream().on("error", function(error){
 
@@ -108,7 +107,7 @@ router.get('/report/:presentationName', function (req, res){
 
 	            file.pipe(s3Stream.upload({
 	                "Bucket": S3_BUCKET,
-	                "Key": file.path,
+	                "Key": presentationName.replace(".pptx","") + '/' + file.path,
 	                "ContentType": "text/plain; charset=UTF-8"
 	            }).on('uploaded', function (details) {
 
@@ -230,7 +229,7 @@ router.get('/report/:presentationName', function (req, res){
 
 	    });
 
-	    var params = {Bucket: S3_BUCKET, Key: "ppt/slides/" + slideName};
+	    var params = {Bucket: S3_BUCKET, Key: presentationName + "/ppt/slides/" + slideName};
 
 	    s3.getObject(params)
 	        .on('success', function(response) {
@@ -246,7 +245,7 @@ router.get('/report/:presentationName', function (req, res){
 
 	    slideNames.forEach(function(slideName){
 
-	        var params = {Bucket: S3_BUCKET, Key: "ppt/slides/_rels/" + slideName + ".rels"};
+	        var params = {Bucket: S3_BUCKET, Key: presentationName + "/ppt/slides/_rels/" + slideName + ".rels"};
 
 	        s3.getObject(params)
 	            .on('success', function(response) {

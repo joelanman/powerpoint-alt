@@ -17,7 +17,7 @@ block content
 			xhr.setRequestHeader('x-amz-acl', 'public-read');
 			xhr.onload = function() {
 				console.log("success");
-				window.location = "/report/" + file.name;
+				window.location = "/report/" + file.name.toLowerCase().replace(".pptx","");
 			};
 			xhr.onerror = function() {
 				alert("Could not upload file.");
