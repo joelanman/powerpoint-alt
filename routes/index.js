@@ -15,6 +15,7 @@ aws.config.update({accessKeyId: AWS_ACCESS_KEY, secretAccessKey: AWS_SECRET_KEY}
 var s3Stream = require('s3-upload-stream')(new aws.S3());
 var s3 = new aws.S3();
 
+var now = require("performance-now");
 
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
@@ -49,6 +50,10 @@ router.get('/sign_s3', function(req, res){
 });
 
 router.get('/report/:presentationName', function (req, res){
+
+	var timings = [];
+
+	timings.push({"init": now()});
 
 	var presentationName = req.params.presentationName;
 
@@ -115,6 +120,7 @@ router.get('/report/:presentationName', function (req, res){
 	            
 	                if (uploads == 0){
 	                    console.log("all uploaded");
+						timings.push({"uploaded": now()});
 	                    processUnzipped();
 	                }
 
@@ -150,10 +156,14 @@ router.get('/report/:presentationName', function (req, res){
 
 	    });
 
+		timings.push({"processed": now()});
+
 	    var locals = {
 	        slides: processedSlides,
 	        presentationName: presentationName
 	    }
+
+	    console.log(JSON.stringify(timings, null, '  '));
 
 	    res.render("report", locals)
 

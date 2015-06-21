@@ -26,6 +26,7 @@
     "jade": "^1.11.0",
     "minimist": "^1.1.1",
     "morgan": "~1.5.1",
+    "performance-now": "^0.2.0",
     "s3-upload-stream": "^1.0.7",
     "serve-favicon": "~2.2.0",
     "unzip": "^0.1.11"
