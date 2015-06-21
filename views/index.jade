@@ -2,59 +2,70 @@ extends layout
 
 block content
 
-	form(action="upload", method="post", enctype="multipart/form-data")
+	link(rel="stylesheet",type="text/css",href="/stylesheets/style.css")
 
-		p Select image to upload:
+	main.page-upload
 
-		input(type="file", name="powerpoint", id="powerpoint")
-		input(type="submit", value="Upload", name="submit")
+		h1 Accessible Powerpoint
 
-	script.
+		form#upload-form.upload-form(action="upload", method="post", enctype="multipart/form-data")
 
-		function upload_file(file, signed_request, url){
-			var xhr = new XMLHttpRequest();
-			xhr.open("PUT", signed_request);
-			xhr.setRequestHeader('x-amz-acl', 'public-read');
-			xhr.onload = function() {
-				console.log("success");
-				window.location = "/report/" + file.name.toLowerCase().replace(".pptx","");
-			};
-			xhr.onerror = function() {
-				alert("Could not upload file.");
-			};
-			xhr.send(file);
-			console.log("uploading ...");
-		}
+			label.file-label
+				span Choose a Powerpoint file
+				input.file(type="file", name="powerpoint", id="powerpoint")
+			input.submit(type="submit", value="Upload", name="submit")
 
-		function get_signed_request(file){
+		p#processing.processing Processing - might take up to a minute ...
 
-			var xhr = new XMLHttpRequest();
+		script.
 
-				xhr.open("GET", "/sign_s3?file_name="+file.name+"&file_type="+file.type);
-				xhr.onreadystatechange = function(){
-				if (xhr.readyState === 4){
-					if (xhr.status === 200){
-						console.log("received");
-						var response = JSON.parse(xhr.responseText);
-						upload_file(file, response.signed_request, response.url);
-					} else {
-						alert("failed");
+			function upload_file(file, signed_request, url){
+				var xhr = new XMLHttpRequest();
+				xhr.open("PUT", signed_request);
+				xhr.setRequestHeader('x-amz-acl', 'public-read');
+				xhr.onload = function() {
+					console.log("success");
+					window.location = "/report/" + file.name.toLowerCase().replace(".pptx","");
+				};
+				xhr.onerror = function() {
+					alert("Could not upload file.");
+				};
+				xhr.send(file);
+				console.log("uploading ...");
+			}
+
+			function get_signed_request(file){
+
+				document.getElementById("upload-form").style.display = 'none';
+				document.getElementById("processing").style.display = 'block';
+
+				var xhr = new XMLHttpRequest();
+
+					xhr.open("GET", "/sign_s3?file_name="+file.name+"&file_type="+file.type);
+					xhr.onreadystatechange = function(){
+					if (xhr.readyState === 4){
+						if (xhr.status === 200){
+							console.log("received");
+							var response = JSON.parse(xhr.responseText);
+							upload_file(file, response.signed_request, response.url);
+						} else {
+							alert("failed");
+						}
 					}
-				}
-			};
+				};
 
-			xhr.send();
-			console.log("getting signed request ...");
-		}
+				xhr.send();
+				console.log("getting signed request ...");
+			}
 
-		(function() {
-			document.getElementById("powerpoint").onchange = function(){
-				var files = document.getElementById("powerpoint").files;
-				var file = files[0];
-			if (file == null){
-				alert("No file selected.");
-			} else {
-					get_signed_request(file);
-				}
-			};
-		})();
+			(function() {
+				document.getElementById("powerpoint").onchange = function(){
+					var files = document.getElementById("powerpoint").files;
+					var file = files[0];
+					if (file == null){
+						alert("No file selected.");
+					} else {
+						get_signed_request(file);
+					}
+				};
+			})();
