@@ -7,7 +7,6 @@ var minimist = require('minimist');
 var jade = require('jade');
 
 var aws = require('aws-sdk');
-var s3Stream = require('s3-upload-stream')(new aws.S3());
 
 var AWS_ACCESS_KEY = process.env.AWS_ACCESS_KEY;
 var AWS_SECRET_KEY = process.env.AWS_SECRET_KEY;
@@ -15,12 +14,15 @@ var S3_BUCKET = "joelanman-powerpoint";
 
 aws.config.update({accessKeyId: AWS_ACCESS_KEY, secretAccessKey: AWS_SECRET_KEY});
 
+var s3Stream = require('s3-upload-stream')(new aws.S3());
+var s3 = new aws.S3();
+
 var argv = minimist(process.argv.slice(2));
 
 var presentationName = argv._[0];
 
 if (!presentationName){
-	console.error("Error - No presentation selected.");
+    console.error("Error - No presentation selected.");
     process.exit(1);
 }
 
@@ -32,203 +34,228 @@ var slideRegex = /^ppt\/slides\/[^\/]*\.xml$/;
 var relsRegex  = /^ppt\/slides\/_rels\/[^\/]*\.rels$/;
 var mediaRegex = /^ppt\/media\/[^\/]*$/;
 
-var paths = {
-	'slides': {},
-	'rels': {},
-	'media': {}
-};
+var slideNames = [];
+
+// read pptx and unzip to s3
 
 fs.createReadStream(path.join("input", presentationName + ".pptx"))
-    .pipe(unzip.Parse())
-	.on('entry', function (file) {
+.pipe(unzip.Parse())
+.on('entry', function (file) {
 
-		var keep = false;
+    var keep = false;
 
-		if (slideRegex.test(file.path)){
+    if (slideRegex.test(file.path)){
 
-			paths.slides[file.path] = true;
-			keep = true;
+        var slideName = file.path.replace("ppt/slides/","");
 
-		} else if (relsRegex.test(file.path)){
+        slideNames.push(slideName);
+        keep = true;
 
-			paths.rels[file.path] = true;
-			keep = true;
+    } else if (relsRegex.test(file.path)){
 
-		} else if (mediaRegex.test(file.path)){
+        keep = true;
 
-			paths.media[file.path] = true;
-			keep = true;
+    } else if (mediaRegex.test(file.path)){
 
-		}
+        keep = true;
 
-		if (keep){
+    }
 
-			uploads++;
+    if (keep){
 
-	    	file.pipe(s3Stream.upload({
-			  "Bucket": S3_BUCKET,
-			  "Key": file.path
-			}).on('uploaded', function (details) {
-				uploads--;
-				// console.log(details);
-				if (uploads == 0){
-					console.log("all done");
-					console.dir(paths);
-					//processUnzipped();
-				}
-			}));
+        uploads++;
 
-	    } else {
+        file.pipe(s3Stream.upload({
+            "Bucket": S3_BUCKET,
+            "Key": file.path,
+            "ContentType": "text/plain; charset=UTF-8"
+        }).on('uploaded', function (details) {
 
-	    	file.autodrain();
+            uploads--;
+        
+            if (uploads == 0){
+                console.log("all uploaded");
+                processUnzipped();
+            }
 
-	    }
-    })
-    .on('close', function(){
+        }));
 
-    	console.log("done unzipping");
+    } else {
+
+        file.autodrain();
+
+    }
+})
+.on('close', function(){
+
+    console.log("done unzipping");
+
+});
+
+processedSlides = [];
+
+function queueSlideData(slide){
+
+    processedSlides.push(slide);
+
+    if (processedSlides.length != slideNames.length){
+        return;
+    }
+
+    processedSlides.sort(function(a,b){
+
+        if (a.slide < b.slide) return -1;
+        if (a.slide > b.slide) return 1;
+        if (a.slide == b.slide) return 0;
 
     });
 
-function processUnzipped(){
+    // html
 
-	var filePath = path.join("input", presentationName, "ppt", "slides");
-	var files = fs.readdirSync(filePath);
+    var options = {
+        pretty: true
+    }
 
-	var slides = [];
+    var locals = {
+        slides: processedSlides,
+        presentationName: presentationName
+    }
 
-	files.forEach(function(filename){
+    var template = fs.readFileSync(path.join("lib", "slides.jade"));
 
-		if (filename.indexOf(".xml") == -1){
-			return;
-		}
+    var fn = jade.compile(template, options);
+    var html = fn(locals);
 
-		console.log(filename);
+    fs.writeFileSync(path.join("output", presentationName + ".html"), html);
 
-		var relsFile = fs.readFileSync(path.join(filePath, "/_rels/", filename + ".rels"));
-
-		var $ = cheerio.load(relsFile);
-
-		var rels = {};
-
-		$("Relationship").each(function(){
-
-			var $this = $(this);
-
-			rels[$this.attr("id")] = $this.attr("target").replace("../media/","");
-
-		});
-
-		var slideFile = fs.readFileSync(path.join(filePath, filename));
-
-		var $ = cheerio.load(slideFile);
-
-		var text = "";
-
-		$("p\\:txBody a\\:p a\\:r a\\:t").each(function(){
-
-			text += $(this).text() + " ";
-
-		});
-
-		var slide = {
-			"slide": Number(filename.replace("slide", "").replace(".xml", "")),
-			"text": text,
-			"pics": [],
-			"groups": []
-		};
-
-		// pics
-
-		$('p\\:pic p\\:cnvpr').each(function(){
-
-			var $this = $(this);
-
-			var relId = $this.closest("p\\:pic").find("a\\:blip").attr("r:embed");
-
-			slide.pics.push({
-				"id": $this.attr('id'),
-				"name": $this.attr('name'),
-				"description": $this.attr('descr') || "",
-				"file": rels[relId]
-			});
-
-		});
-
-		// groups
-
-		$('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
-
-			var $this = $(this);
-
-			slide.groups.push({
-				"id": $this.attr('id'),
-				"name": $this.attr('name'),
-				"description": $this.attr('descr') || ""
-			});
-
-		});
-
-		slides.push(slide);
-
-	});
-
-	slides.sort(function(a,b){
-
-		if (a.slide < b.slide) return -1;
-		if (a.slide > b.slide) return 1;
-		if (a.slide == b.slide) return 0;
-
-	});
-
-	// html
-
-	var options = {
-		pretty: true
-	}
-
-	var locals = {
-		slides: slides,
-		presentationName: presentationName
-	}
-
-	var template = fs.readFileSync(path.join("lib", "slides.jade"));
-
-	var fn = jade.compile(template, options);
-	var html = fn(locals);
-
-	fs.writeFileSync(path.join("output", presentationName + ".html"), html);
-
-	console.log("done");
+    console.log("all done");
 
 }
 
-	// json
+function processSlide(slideName, rels, slideData){
 
-	// console.log(JSON.stringify(slides, null, "  "));
+    console.log("processSlide: " + slideName);
 
-	// console.log();
+    var $ = cheerio.load(slideData);
 
-	// csv
+    var text = "";
 
-	// console.log("slide,id,name,description");
+    $("p\\:txBody a\\:p a\\:r a\\:t").each(function(){
 
-	// slides.forEach(function(slide){
+        text += $(this).text() + " ";
 
-	// 	slide.pics.forEach(function(pic){
+    });
 
-	// 		console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' + pic.description.replace(/"/g,'""') + '"');
+    var slide = {
+        "slide": Number(slideName.replace("slide", "").replace(".xml", "")),
+        "text": text,
+        "pics": [],
+        "groups": []
+    };
 
-	// 	});
+    // pics
 
-	// 	slide.groups.forEach(function(group){
+    $('p\\:pic p\\:cnvpr').each(function(){
 
-	// 		console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
+        var $this = $(this);
 
-	// 	});
+        var relId = $this.closest("p\\:pic").find("a\\:blip").attr("r:embed");
 
-	// });
+        slide.pics.push({
+            "id": $this.attr('id'),
+            "name": $this.attr('name'),
+            "description": $this.attr('descr') || "",
+            "file": rels[relId]
+        });
 
-	// //yaml
+    });
 
-	// console.log(yaml.stringify(slides, 4));
+    // groups
+
+    $('p\\:grpSp p\\:nvGrpSpPr p\\:cNvPr').each(function(){
+
+        var $this = $(this);
+
+        slide.groups.push({
+            "id": $this.attr('id'),
+            "name": $this.attr('name'),
+            "description": $this.attr('descr') || ""
+        });
+
+    });
+
+    queueSlideData(slide);
+
+}
+
+function processRels(slideName, relsData){
+
+    var $ = cheerio.load(relsData);
+
+    var rels = {};
+
+    $("Relationship").each(function(){
+
+        var $this = $(this);
+
+        rels[$this.attr("id")] = $this.attr("target").replace("../media/","");
+
+    });
+
+    var params = {Bucket: S3_BUCKET, Key: "ppt/slides/" + slideName};
+
+    s3.getObject(params)
+        .on('success', function(response) {
+            processSlide(slideName, rels, response.data.Body);
+        })
+        .send();
+
+}
+
+function processUnzipped(){
+
+    var slides = [];
+
+    slideNames.forEach(function(slideName){
+
+        var params = {Bucket: S3_BUCKET, Key: "ppt/slides/_rels/" + slideName + ".rels"};
+
+        s3.getObject(params)
+            .on('success', function(response) {
+                processRels(slideName, response.data.Body);
+            })
+            .send();
+
+    });
+
+}
+
+    // json
+
+    // console.log(JSON.stringify(slides, null, "  "));
+
+    // console.log();
+
+    // csv
+
+    // console.log("slide,id,name,description");
+
+    // slides.forEach(function(slide){
+
+    //  slide.pics.forEach(function(pic){
+
+    //      console.log(slide.slide + ',' + pic.id + ',"' + pic.name.replace(/"/g,'""') + '","' + pic.description.replace(/"/g,'""') + '"');
+
+    //  });
+
+    //  slide.groups.forEach(function(group){
+
+    //      console.log(slide.slide + ',' + group.id + ',"' + group.name.replace(/"/g,'""') + '","' +group.description.replace(/"/g,'""') + '"');
+
+    //  });
+
+    // });
+
+    // //yaml
+
+    // console.log(yaml.stringify(slides, 4));
