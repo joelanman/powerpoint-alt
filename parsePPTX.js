@@ -122,7 +122,7 @@ function queueSlideData(slide){
         presentationName: presentationName
     }
 
-    var template = fs.readFileSync(path.join("lib", "slides.jade"));
+    var template = fs.readFileSync(path.join("views", "report.jade"));
 
     var fn = jade.compile(template, options);
     var html = fn(locals);
