@@ -26,8 +26,6 @@ if (!presentationName){
     process.exit(1);
 }
 
-console.log('unzipping "resources/powerpoint/' + presentationName + '.pptx"');
-
 var uploads = 0;
 
 var slideRegex = /^ppt\/slides\/[^\/]*\.xml$/;
@@ -38,59 +36,62 @@ var slideNames = [];
 
 // read pptx and unzip to s3
 
-fs.createReadStream(path.join("input", presentationName + ".pptx"))
-.pipe(unzip.Parse())
-.on('entry', function (file) {
+var params = {Bucket: S3_BUCKET, Key: presentationName + ".pptx"};
 
-    var keep = false;
+var readStream = s3.getObject(params).createReadStream();
 
-    if (slideRegex.test(file.path)){
+readStream.pipe(unzip.Parse())
+    .on('entry', function (file) {
 
-        var slideName = file.path.replace("ppt/slides/","");
+        var keep = false;
 
-        slideNames.push(slideName);
-        keep = true;
+        if (slideRegex.test(file.path)){
 
-    } else if (relsRegex.test(file.path)){
+            var slideName = file.path.replace("ppt/slides/","");
 
-        keep = true;
+            slideNames.push(slideName);
+            keep = true;
 
-    } else if (mediaRegex.test(file.path)){
+        } else if (relsRegex.test(file.path)){
 
-        keep = true;
+            keep = true;
 
-    }
+        } else if (mediaRegex.test(file.path)){
 
-    if (keep){
+            keep = true;
 
-        uploads++;
+        }
 
-        file.pipe(s3Stream.upload({
-            "Bucket": S3_BUCKET,
-            "Key": file.path,
-            "ContentType": "text/plain; charset=UTF-8"
-        }).on('uploaded', function (details) {
+        if (keep){
 
-            uploads--;
-        
-            if (uploads == 0){
-                console.log("all uploaded");
-                processUnzipped();
-            }
+            uploads++;
 
-        }));
+            file.pipe(s3Stream.upload({
+                "Bucket": S3_BUCKET,
+                "Key": file.path,
+                "ContentType": "text/plain; charset=UTF-8"
+            }).on('uploaded', function (details) {
 
-    } else {
+                uploads--;
+            
+                if (uploads == 0){
+                    console.log("all uploaded");
+                    processUnzipped();
+                }
 
-        file.autodrain();
+            }));
 
-    }
-})
-.on('close', function(){
+        } else {
 
-    console.log("done unzipping");
+            file.autodrain();
 
-});
+        }
+    })
+    .on('close', function(){
+
+        console.log("done unzipping");
+
+    });
 
 processedSlides = [];
 

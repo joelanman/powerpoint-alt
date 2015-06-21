@@ -1,0 +1,66 @@
+
+html
+
+	head
+
+		link(rel="stylesheet",type="text/css",href="/stylesheets/style.css")
+
+	body
+
+		main
+
+			each slide in slides
+
+				.slide
+
+					h2 Slide #{slide.slide}
+
+					if slide.text
+
+						h3 Text
+
+						p= slide.text
+
+					if slide.pics.length
+
+						h3 Images
+
+						.group
+
+							each el in slide.pics
+
+								.group
+
+									.row
+										span.name Id
+										span.value= el.id
+									.row
+										span.name Name
+										span.value= el.name
+									.row
+										span.name File
+										span.value
+											a(target="_blank", href="resources/powerpoint/#{presentationName}/ppt/media/#{el.file}")= el.file
+									.row
+										span.name Description
+										span.value= el.description
+
+
+					if slide.groups.length
+
+						h3 Groups
+
+						.group
+							each el in slide.groups
+
+								.group
+
+									.row
+										span.name Id
+										span.value= el.id
+									.row
+										span.name Name
+										span.value= el.name
+									.row
+										span.name Description
+										span.value= el.description

@@ -1,8 +1,32 @@
-body {
-  padding: 50px;
-  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+main{
+	max-width: 800px;
+	margin: auto;
+	font-family: Helvetica, Arial, sans-serif;
 }
 
-a {
-  color: #00B7FF;
+.slide{
+	padding: 1em 0;
+	margin: 1em 0;
+	border-bottom: 1px solid #ccc;
+}
+
+.group{
+	margin: 1.25em 0;
+}
+
+.row{
+	margin: 0.25em 0;
+}
+
+.name,
+.value{
+	display: inline-block;
+	vertical-align: top;
+}
+
+.name{
+	width: 25%;
+}
+.value{
+	width: 75%;
 }
